@@ -2,14 +2,15 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var items: [String] = []       // List of stored items
-    @State private var newItemText: String = ""  // Text for the pop-up input box
-    @State private var showAddItemPopup: Bool = false // Controls the visibility of the add-item pop-up
+    @State private var newItemText: String = ""  // Text for the add-item popup
+    @State private var showAddItemPopup: Bool = false // Controls the visibility of the add-item popup
     @State private var pickedItem: String = ""   // Stores the picked item
-    @State private var showPopup: Bool = false   // Controls the visibility of the pick-chit pop-up
+    @State private var showPopup: Bool = false   // Controls the visibility of the pick-chit popup
     @State private var isLoading: Bool = false   // Controls the loading animation
-    @State private var buttonPressed: Bool = false // Tracks button press animation
     @State private var remainingItems: [String] = [] // Tracks items that haven't been picked
     @State private var showClearAllConfirmation: Bool = false // Confirmation for clearing all chits
+    @State private var editingItemIndex: Int? = nil // Index of the item being edited
+    @State private var editedText: String = ""   // Stores the edited text
 
     let chitsKey = "chitsKey" // Key for storing chits in UserDefaults
 
@@ -32,7 +33,7 @@ struct ContentView: View {
                     Spacer()
                     Button(action: {
                         withAnimation {
-                            showAddItemPopup = true // Show add-item pop-up
+                            showAddItemPopup = true // Show add-item popup
                         }
                     }) {
                         Image(systemName: "plus.circle.fill")
@@ -53,35 +54,38 @@ struct ContentView: View {
                 }
                 .padding()
 
-                // Display Items
-                ScrollView {
-                    VStack(spacing: 15) {
-                        ForEach(items, id: \.self) { item in
-                            HStack {
-                                Text(item)
-                                    .foregroundColor(.white)
-                                    .font(.headline)
-                                    .padding()
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity)
-                            .background(LinearGradient(gradient: Gradient(colors: [Color.blue, Color.indigo]),
-                                                       startPoint: .leading,
-                                                       endPoint: .trailing))
-                            .cornerRadius(15)
-                            .shadow(color: Color.black.opacity(0.3), radius: 5)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                // Display Items with Swipe-to-Delete
+                List {
+                    ForEach(items.indices, id: \.self) { index in
+                        HStack {
+                            Text(items[index])
+                                .foregroundColor(.white)
+                                .font(.headline)
+                                .padding()
+                            Spacer()
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(LinearGradient(gradient: Gradient(colors: [Color.blue, Color.indigo]),
+                                                     startPoint: .leading,
+                                                     endPoint: .trailing))
+                        )
+                        .onTapGesture {
+                            editingItemIndex = index
+                            editedText = items[index]
                         }
                     }
-                    .padding()
+                    .onDelete(perform: deleteItems)
+                    .listRowBackground(Color.clear)
                 }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
 
                 // Pick Chit Button
                 Button(action: {
                     withAnimation {
-                        buttonPressed = true
+                        startLoadingAndPickItem()
                     }
-                    startLoadingAndPickItem()
                 }) {
                     Text(isLoading ? "Loading..." : "Pick Chit")
                         .padding()
@@ -89,7 +93,7 @@ struct ContentView: View {
                         .foregroundColor(.white)
                         .background(
                             LinearGradient(
-                                gradient: Gradient(colors: buttonPressed ? [Color.cyan, Color.green] : [Color.green, Color.cyan]),
+                                gradient: Gradient(colors: [Color.green, Color.cyan]),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -100,11 +104,9 @@ struct ContentView: View {
                 }
                 .disabled(remainingItems.isEmpty || isLoading) // Disable if no items or loading
                 .padding()
-                .scaleEffect(buttonPressed ? 0.95 : 1.0) // Shrink button slightly when pressed
-                .animation(.easeOut(duration: 0.2), value: buttonPressed)
             }
 
-            // Add Item Pop-Up
+            // Add Item Popup
             if showAddItemPopup {
                 VStack(spacing: 20) {
                     Text("Add Items")
@@ -115,7 +117,7 @@ struct ContentView: View {
 
                     RoundedRectangle(cornerRadius: 5)
                         .fill(Color.white.opacity(0.1))
-                        .frame(height: 350)
+                        .frame(height: 120)
                         .overlay(
                             TextEditor(text: $newItemText)
                                 .padding()
@@ -123,21 +125,36 @@ struct ContentView: View {
                         )
                         .shadow(color: Color.black.opacity(0.3), radius: 5)
 
-                    Button("Add") {
-                        withAnimation {
-                            buttonPressed = true
+                    HStack(spacing: 15) {
+                        // Cancel Button
+                        Button("Cancel") {
+                            withAnimation {
+                                showAddItemPopup = false
+                                newItemText = ""
+                            }
                         }
-                        addItems()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.gray)
+                        .foregroundColor(.white)
+                        .cornerRadius(15)
+                        .shadow(color: .black.opacity(0.5), radius: 5)
+
+                        // Add Button
+                        Button("Add") {
+                            withAnimation {
+                                addItems()
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(LinearGradient(gradient: Gradient(colors: [Color.pink, Color.purple]),
+                                                   startPoint: .leading,
+                                                   endPoint: .trailing))
+                        .foregroundColor(.white)
+                        .cornerRadius(15)
+                        .shadow(color: .purple.opacity(0.5), radius: 10)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(LinearGradient(gradient: Gradient(colors: [Color.pink, Color.purple]),
-                                               startPoint: .leading,
-                                               endPoint: .trailing))
-                    .foregroundColor(.white)
-                    .font(.headline)
-                    .cornerRadius(15)
-                    .shadow(color: .purple.opacity(0.5), radius: 10)
                 }
                 .padding()
                 .frame(width: 320)
@@ -151,7 +168,74 @@ struct ContentView: View {
                 .transition(.scale.combined(with: .opacity))
             }
 
-            // Pick Item Pop-Up
+            // Edit Item Popup
+            if let index = editingItemIndex {
+                VStack(spacing: 20) {
+                    Text("Edit Item")
+                        .font(.title2)
+                        .bold()
+                        .foregroundColor(.white)
+                        .padding()
+
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(height: 120)
+                        .overlay(
+                            TextEditor(text: $editedText)
+                                .padding()
+                                .foregroundColor(.black)
+                        )
+                        .shadow(color: Color.black.opacity(0.3), radius: 5)
+
+                    HStack(spacing: 15) {
+                        // Cancel Button
+                        Button("Cancel") {
+                            withAnimation {
+                                editingItemIndex = nil
+                                editedText = ""
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.gray)
+                        .foregroundColor(.white)
+                        .cornerRadius(15)
+
+                        // Save Button
+                        Button("Save") {
+                            withAnimation {
+                                if index >= 0 && index < items.count {
+                                    items[index] = editedText
+                                    remainingItems = items
+                                    saveItems()
+                                    editingItemIndex = nil
+                                    editedText = ""
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(LinearGradient(gradient: Gradient(colors: [Color.pink, Color.purple]),
+                                                   startPoint: .leading,
+                                                   endPoint: .trailing))
+                        .foregroundColor(.white)
+                        .cornerRadius(15)
+                        .shadow(color: .purple.opacity(0.5), radius: 10)
+                    }
+                }
+                .padding()
+                .frame(width: 320)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(LinearGradient(gradient: Gradient(colors: [Color.black.opacity(0.8), Color.blue.opacity(0.5)]),
+                                             startPoint: .top,
+                                             endPoint: .bottom))
+                )
+                .shadow(color: .black.opacity(0.5), radius: 20)
+                .transition(.scale.combined(with: .opacity))
+            }
+
+            // Pick Item Popup
             if showPopup {
                 VStack(spacing: 20) {
                     Text("Your Random Pick")
@@ -207,7 +291,7 @@ struct ContentView: View {
         }
     }
 
-    // Add items from the pop-up to the list
+    // Add items from the popup to the list
     private func addItems() {
         let newItems = newItemText
             .split(separator: "\n")
@@ -219,9 +303,7 @@ struct ContentView: View {
         }
         saveItems() // Save the updated items
         newItemText = ""
-        withAnimation {
-            showAddItemPopup = false // Hide pop-up
-        }
+        showAddItemPopup = false // Hide popup
     }
 
     // Function to Start Loading and Pick a Random Item
@@ -230,7 +312,6 @@ struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { // Delay for 2 seconds
             pickRandomItem()
             isLoading = false
-            buttonPressed = false // Reset button animation
         }
     }
 
@@ -242,9 +323,16 @@ struct ContentView: View {
             pickedItem = randomItem
             withAnimation {
                 remainingItems.removeAll { $0 == randomItem } // Remove the picked item
-                showPopup = true // Show pick-chit pop-up
+                showPopup = true // Show pick-chit popup
             }
         }
+    }
+
+    // Delete items with swipe
+    private func deleteItems(at offsets: IndexSet) {
+        items.remove(atOffsets: offsets)
+        remainingItems = items
+        saveItems()
     }
 
     // Function to Clear All Chits
