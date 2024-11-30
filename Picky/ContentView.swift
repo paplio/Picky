@@ -16,7 +16,7 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             // Background Gradient
-            LinearGradient(gradient: Gradient(colors: [Color.purple, Color.blue]),
+            LinearGradient(gradient: Gradient(colors: [Color.indigo, Color.black]),
                            startPoint: .topLeading,
                            endPoint: .bottomTrailing)
                 .ignoresSafeArea()
@@ -65,7 +65,7 @@ struct ContentView: View {
                                 Spacer()
                             }
                             .frame(maxWidth: .infinity)
-                            .background(LinearGradient(gradient: Gradient(colors: [Color.orange, Color.pink]),
+                            .background(LinearGradient(gradient: Gradient(colors: [Color.blue, Color.indigo]),
                                                        startPoint: .leading,
                                                        endPoint: .trailing))
                             .cornerRadius(15)
